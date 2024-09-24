@@ -1,6 +1,6 @@
 import User from "../models/user.js";
 import bcrypt from 'bcryptjs';
-import Post from "../models/post.js";
+import Posts from "../models/mongoPosts.js";
 const userController = {
     isAdmin: async (req, res, next) => {
         try {
@@ -16,17 +16,20 @@ const userController = {
     },
     getAllUsers: async (req, res) => {
         try {
-            const users = await User.findAll({
-                include: [{
-                    model: Post,  // Include posts created by each user
-                    as: 'posts'   // Make sure the alias matches the one defined in associations.js
-                }]
-            });
-            res.status(200).json({ users });
+            // Fetch users from PostgreSQL
+            const users = await User.findAll();
+    
+            // Fetch posts from MongoDB for each user
+            const usersWithPosts = await Promise.all(users.map(async user => {
+                const posts = await Posts.find({ userId: user.id }); // Adjust this to match how userId is stored in Posts
+                return { ...user.toJSON(), posts }; // Combine user data with posts
+            }));
+    
+            res.status(200).json({ users: usersWithPosts });
         } catch (error) {
             res.status(500).json({ error: 'Failed to fetch users and posts', details: error.message });
         }
-    },
+    },    
     
     getUserById: async (req, res) => {
         const { id } = req.params;

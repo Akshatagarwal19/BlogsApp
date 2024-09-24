@@ -1,7 +1,6 @@
-import { error } from 'console';
-import Post from '../models/post.js';
 import fs from 'fs';
 import path from 'path';
+import Posts from '../models/mongoPosts.js';  // MongoDB Post model
 
 const postController = {
     // Create a new post with optional media (video, image, audio, or just text)
@@ -14,13 +13,13 @@ const postController = {
         const mediaType = req.file ? req.file.mimetype.split('/')[0] : null; // video, image, audio
 
         try {
-            // Create the post in the database
-            const newPost = await Post.create({
+            // Create the post in MongoDB
+            const newPost = await Posts.create({
                 userId,
                 title: title || null, // title can be null for text-only posts
                 description,
                 mediaPath,
-                mediaType
+                mediaType,
             });
 
             res.status(201).json({ message: 'Post created successfully', post: newPost });
@@ -32,7 +31,7 @@ const postController = {
     // Fetch all posts
     getAllPosts: async (req, res) => {
         try {
-            const posts = await Post.findAll();
+            const posts = await Posts.find();
             res.status(200).json({ posts });
         } catch (error) {
             res.status(500).json({ message: 'Failed to fetch posts', details: error.message });
@@ -44,7 +43,7 @@ const postController = {
         const { id } = req.params;
 
         try {
-            const post = await Post.findByPk(id);
+            const post = await Posts.findById(id);  // MongoDB's findById
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
@@ -62,7 +61,7 @@ const postController = {
         const mediaType = req.file ? req.file.mimetype.split('/')[0] : null;
 
         try {
-            const post = await Post.findByPk(id);
+            const post = await Posts.findById(id);  // MongoDB's findById
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
@@ -94,44 +93,44 @@ const postController = {
         const userId = req.user.id;
 
         try {
-            const post = await Post.findByPk(id);
+            const post = await Posts.findById(id);  // MongoDB's findById
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
 
-            if (post.userId !== userId && req.user.role !== 'admin') {
+            if (post.userId.toString() !== userId && req.user.role !== 'admin') {
                 return res.status(403).json({ error: 'You do not have permission to delete this post' });
             }
-            
+
             // Optionally remove associated media file
             if (post.mediaPath) {
                 fs.unlinkSync(post.mediaPath);
             }
 
-            await post.destroy();
+            await post.remove();
             res.status(200).json({ message: 'Post deleted successfully' });
         } catch (error) {
             res.status(500).json({ message: 'Failed to delete post', details: error.message });
         }
     },
 
-    streamPost: async (req ,res) => {
+    streamPost: async (req, res) => {
         const { id } = req.params;
 
         try {
-            const post = await Post.findByPk(id);
+            const post = await Posts.findById(id);  // MongoDB's findById
             if (!post) {
-                return res.status(404).json({ error: 'Post Not found' });
+                return res.status(404).json({ error: 'Post not found' });
             }
 
             // Handling Image posts
-            if (post.mediaType == 'image') {
+            if (post.mediaType === 'image') {
                 const imagePath = post.mediaPath;
                 if (!fs.existsSync(imagePath)) {
                     return res.status(404).json({ error: 'Image not found' });
                 }
 
-                // serve the image
+                // Serve the image
                 res.sendFile(path.resolve(imagePath));
             }
             // Handling Video files 
@@ -152,7 +151,7 @@ const postController = {
                         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
                         'Accepted-Ranges': `bytes`,
                         'Content-Length': chunkSize,
-                        'Content-Type': 'video/mp4', //We can adjust MIME type if needed
+                        'Content-Type': 'video/mp4', // Adjust MIME type if needed
                     };
 
                     res.writeHead(206, head);
@@ -160,12 +159,13 @@ const postController = {
                 } else {
                     const head = {
                         'Content-Length': fileSize,
-                        'Content-Type': 'video/mp4', //We can adjust MIME type if needed
+                        'Content-Type': 'video/mp4', // Adjust MIME type if needed
                     };
                     res.writeHead(200, head);
                     fs.createReadStream(videoPath).pipe(res);
                 }
             }
+            // Handling Audio files
             else if (post.mediaType === 'audio') {
                 const audioPath = post.mediaPath;
                 const audioStat = fs.statSync(audioPath);
@@ -199,52 +199,10 @@ const postController = {
                 }
             }
         }
-        catch(error){
-            res.status(500).json({ error: 'Failed to stream video', details: error.message });
+        catch (error) {
+            res.status(500).json({ error: 'Failed to stream media', details: error.message });
         }
     },
-    // streamAudio: async (req ,res) => {
-    //     try {
-    //         const { id } = req.params;
-    //         const post = await Post.findByPk(id);
-    //         if (!post || post.mediaType !== 'audio') {
-    //             return res.status(404).json({ error: 'Audio not found or invalid media type' });
-    //         }
-            
-    //         const audioPath = post.mediaPath;
-    //         const audioStat = fs.statSync(audioPath);
-    //         const fileSize = audioStat.size;
-    //         const range = req.headers.range;
-
-    //         if (range) {
-    //             const parts = range.replace(/bytes=/, "").split("-");
-    //             const start = parseInt(parts[0], 10);
-    //             const end = parts[1] ? parseInt(parts[1], 10) : fileSize -1;
-
-    //             const chunkSize = (end - start) + 1;
-    //             const file = fs.createReadStream(audioPath, { start, end });
-    //             const head = {
-    //                 'Content-Range' : `bytes ${start}- ${end}/${fileSize}`,
-    //                 'Accepted-Ranges' : 'bytes',
-    //                 'Content-Length': chunkSize,
-    //                 'Content-Type': 'audio/mp3', // Adjust MIME type if needed 
-    //             };
-
-    //             res.writeHead(206, head);
-    //             file.pipe(res);
-    //         } else {
-    //             const head = {
-    //                 'Content-Length': fileSize,
-    //                 'Content-Type':'audio/mp3', // Adjust MIME type if needed
-    //             };
-    //             res.writeHead(200, head);
-    //             fs.createReadStream(audioPath).pipe(res);
-    //         }
-    //     }
-    //     catch (error) {
-    //         res.status(500).json({ error: 'Failed to stream audio', details: error.message });
-    //     }
-    // },
 };
 
 export default postController;

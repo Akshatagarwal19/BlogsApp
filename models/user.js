@@ -1,6 +1,5 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/sequelize.js";
-// import Video from "./video.js";
 
 const User = sequelize.define('Users', {
     id: {
