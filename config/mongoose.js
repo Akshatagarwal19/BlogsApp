@@ -5,8 +5,6 @@ const mongoURI = 'mongodb://localhost:27017/bologdb';  // Replace 'yourdbname' w
 const connectDB = async () => {
     try {
         await mongoose.connect(mongoURI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
             serverSelectionTimeoutMS: 30000, // Timeout after 30 seconds
         });
         console.log('MongoDB connected successfully');
