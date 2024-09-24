@@ -107,7 +107,7 @@ const postController = {
                 fs.unlinkSync(post.mediaPath);
             }
 
-            await post.remove();
+            await post.deleteOne();
             res.status(200).json({ message: 'Post deleted successfully' });
         } catch (error) {
             res.status(500).json({ message: 'Failed to delete post', details: error.message });
