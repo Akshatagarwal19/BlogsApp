@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.get('/', authenticate, userController.isAdmin ,userController.getAllUsers);
 router.get('/:id', authenticate, userController.isAdmin ,userController.getUserById);
-router.put('/:id', authenticate, userController.isAdmin ,userController.updateProfile);
+router.put('/:id', authenticate, userController.updateProfile);
 router.delete('/:id', authenticate, userController.isAdmin ,userController.deleteUser);
 router.put('/:id/profile-photo', authenticate, uploadMiddleware.single('profilePhoto'), userController.updateProfile);
 
