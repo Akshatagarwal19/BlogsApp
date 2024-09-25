@@ -6,13 +6,12 @@ import multer from 'multer';
 
 const router = express.Router();
 
-// Allow multiple types of media: videos, images, audio
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const fileType = file.mimetype.split('/')[0]; // Extracting the file type from MIME type
-        let folder = './uploads/media'; // Default media folder
+        const fileType = file.mimetype.split('/')[0]; 
+        let folder = './uploads/media'; 
 
-        // Adjust folder based on file type
         if (fileType === 'video') folder = './uploads/videos';
         else if (fileType === 'image') folder = './uploads/images';
         else if (fileType === 'audio') folder = './uploads/audios';
@@ -25,11 +24,10 @@ const storage = multer.diskStorage({
     }
 });
 
-// Modify file filter to accept different media types
 const upload = multer({
     storage: storage,
     fileFilter: (req, file, cb) => {
-        const allowedTypes = /mp4|mkv|avi|jpg|jpeg|png|mp3|wav/; // Video, image, and audio formats
+        const allowedTypes = /mp4|mkv|avi|jpg|jpeg|png|mp3|wav/; 
         const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
         if (ext) {
             cb(null, true);

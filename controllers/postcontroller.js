@@ -1,22 +1,20 @@
 import fs from 'fs';
 import path from 'path';
-import Posts from '../models/mongoPosts.js';  // MongoDB Post model
+import Posts from '../models/mongoPosts.js';  
 
 const postController = {
-    // Create a new post with optional media (video, image, audio, or just text)
+    
     createPost: async (req, res) => {
         const { title, description } = req.body;
         const userId = req.user.id;
 
-        // Handle media if it exists
         const mediaPath = req.file ? req.file.path : null;
-        const mediaType = req.file ? req.file.mimetype.split('/')[0] : null; // video, image, audio
+        const mediaType = req.file ? req.file.mimetype.split('/')[0] : null; 
 
         try {
-            // Create the post in MongoDB
             const newPost = await Posts.create({
                 userId,
-                title: title || null, // title can be null for text-only posts
+                title: title || null, 
                 description,
                 mediaPath,
                 mediaType,
@@ -28,22 +26,20 @@ const postController = {
         }
     },
 
-    // Fetch all posts
     getAllPosts: async (req, res) => {
         try {
-            const posts = await Posts.find();
+            const posts = await Posts.find().sort({ createdAt: -1 });
             res.status(200).json({ posts });
         } catch (error) {
             res.status(500).json({ message: 'Failed to fetch posts', details: error.message });
         }
     },
 
-    // Fetch a post by ID
     getPostById: async (req, res) => {
         const { id } = req.params;
 
         try {
-            const post = await Posts.findById(id);  // MongoDB's findById
+            const post = await Posts.findById(id);
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
@@ -53,7 +49,6 @@ const postController = {
         }
     },
 
-    // Update post
     updatePost: async (req, res) => {
         const { id } = req.params;
         const { title, description } = req.body;
@@ -61,19 +56,18 @@ const postController = {
         const mediaType = req.file ? req.file.mimetype.split('/')[0] : null;
 
         try {
-            const post = await Posts.findById(id);  // MongoDB's findById
+            const post = await Posts.findById(id);  
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
 
-            // Update post details
             post.title = title || post.title;
             post.description = description || post.description;
 
             if (mediaPath) {
-                // Optionally update media if a new file is provided
+                
                 if (post.mediaPath) {
-                    fs.unlinkSync(post.mediaPath); // delete old media file
+                    fs.unlinkSync(post.mediaPath); 
                 }
                 post.mediaPath = mediaPath;
                 post.mediaType = mediaType;
@@ -87,13 +81,12 @@ const postController = {
         }
     },
 
-    // Delete a post
     deletePost: async (req, res) => {
         const { id } = req.params;
         const userId = req.user.id;
 
         try {
-            const post = await Posts.findById(id);  // MongoDB's findById
+            const post = await Posts.findById(id);  
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
@@ -102,7 +95,6 @@ const postController = {
                 return res.status(403).json({ error: 'You do not have permission to delete this post' });
             }
 
-            // Optionally remove associated media file
             if (post.mediaPath) {
                 fs.unlinkSync(post.mediaPath);
             }
@@ -118,22 +110,18 @@ const postController = {
         const { id } = req.params;
 
         try {
-            const post = await Posts.findById(id);  // MongoDB's findById
+            const post = await Posts.findById(id);  
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
 
-            // Handling Image posts
             if (post.mediaType === 'image') {
                 const imagePath = post.mediaPath;
                 if (!fs.existsSync(imagePath)) {
                     return res.status(404).json({ error: 'Image not found' });
                 }
-
-                // Serve the image
                 res.sendFile(path.resolve(imagePath));
-            }
-            // Handling Video files 
+            } 
             else if (post.mediaType === 'video') {
                 const videoPath = post.mediaPath;
                 const videoStat = fs.statSync(videoPath);
@@ -151,7 +139,7 @@ const postController = {
                         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
                         'Accepted-Ranges': `bytes`,
                         'Content-Length': chunkSize,
-                        'Content-Type': 'video/mp4', // Adjust MIME type if needed
+                        'Content-Type': 'video/mp4', 
                     };
 
                     res.writeHead(206, head);
@@ -159,13 +147,13 @@ const postController = {
                 } else {
                     const head = {
                         'Content-Length': fileSize,
-                        'Content-Type': 'video/mp4', // Adjust MIME type if needed
+                        'Content-Type': 'video/mp4', 
                     };
                     res.writeHead(200, head);
                     fs.createReadStream(videoPath).pipe(res);
                 }
             }
-            // Handling Audio files
+        
             else if (post.mediaType === 'audio') {
                 const audioPath = post.mediaPath;
                 const audioStat = fs.statSync(audioPath);
