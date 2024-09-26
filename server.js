@@ -5,6 +5,7 @@ import sequelize from './config/sequelize.js';
 import authRoutes from './routes/auth.js';
 import postRoutes from './routes/postRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
+import commentRoutes from './routes/commentRoutes.js';
 import './models/associations.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,6 +31,7 @@ app.get('/', (req, res) => {
 app.use('/VSAPI/V1/auth', authRoutes);
 app.use('/VSAPI/V1/posts', postRoutes);
 app.use('/VSAPI/V1/profile', profileRoutes);
+app.use('/VSAPI/V1/comments', commentRoutes);
 
 sequelize.sync({ alter: true }) 
     .then(() => {
