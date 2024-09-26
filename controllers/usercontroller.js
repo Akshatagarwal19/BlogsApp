@@ -4,7 +4,6 @@ import path from "path";
 import bcrypt from 'bcryptjs';
 import Posts from "../models/mongoPosts.js";
 
-const DEFAULT_IMAGE_PATH = path.resolve('Defaultimg.jpg');
 
 const userController = {
     isAdmin: async (req, res, next) => {
@@ -43,10 +42,6 @@ const userController = {
                 return res.status(404).json({ error: 'User not found' });
             }
 
-            if (!user.profilePhoto) {
-                user.profilePhoto = DEFAULT_IMAGE_PATH;
-            }
-
             res.status(200).json({ user });
         } catch (error) {
             res.status(500).json({ error: 'Failed to fetch user', details: error.message });
@@ -79,7 +74,7 @@ const userController = {
             }
     
             if (profilePhoto) {
-                if (user.profilePhoto && user.profilePhoto !== path.resolve('Defaultimg.jpg')) {
+                if (user.profilePhoto) {
                     if (fs.existsSync(user.profilePhoto)) { 
                         fs.unlinkSync(user.profilePhoto);  
                     }
@@ -107,7 +102,8 @@ const userController = {
                 return res.status(404).json({ error: 'User not found' });
             }
     
-            await user.destroy(); // Deleting the user
+            await Posts.deleteMany({ userId: id });
+            await user.destroy(); 
             return res.status(200).json({ message: 'User deleted successfully' });
         } catch (error) {
             return res.status(500).json({ error: 'Error deleting user', details: error.message });
