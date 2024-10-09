@@ -1,11 +1,13 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv'
 
-const mongoURI = 'mongodb://localhost:27017/bologdb';  // Replace 'yourdbname' with your actual database name
+dotenv.config();
+// const mongoURI = 'mongodb://localhost:27017/bologdb';  // Replace 'yourdbname' with your actual database name
 
 const connectDB = async () => {
     try {
-        await mongoose.connect(mongoURI, {
-            serverSelectionTimeoutMS: 30000, // Timeout after 30 seconds
+        await mongoose.connect(process.env.MONGO_URL, {
+            // serverSelectionTimeoutMS: 30000, // Timeout after 30 seconds
         });
         console.log('MongoDB connected successfully');
     } catch (error) {

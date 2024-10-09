@@ -5,13 +5,12 @@ import User from "../models/user.js";
 const commentController = {
     addComment: async (req, res) => {
         const { postId } = req.params;
-        const { commentText } = req.body; // Assuming comment body is passed in request body
-
+        const { commentText } = req.body; 
         try {
             const newComment = new Comment({
                 postId,
                 commentText,
-                userId: req.user.id, // Associate comment with the user
+                userId: req.user.id, 
             });
             await newComment.save();
             res.status(201).json({ message: 'Comment added successfully', comment: newComment });
@@ -24,15 +23,13 @@ const commentController = {
         const { postId } = req.params;
 
         try {
-            // Fetch comments for the post
             const comments = await Comment.find({ postId }).sort({ createdAt: -1 });
 
-            // Map through comments to get the username from PostgreSQL
             const formattedComments = await Promise.all(comments.map(async (comment) => {
-                const user = await User.findOne({ where: { id: comment.userId } }); // Fetch user from PostgreSQL
+                const user = await User.findOne({ where: { id: comment.userId } }); 
                 return {
                     commentText: comment.commentText,
-                    username: user ? user.username : 'Unknown User', // Fallback if user not found
+                    username: user ? user.username : 'Unknown User', 
                     createdAt: comment.createdAt,
                 };
             }));
@@ -44,16 +41,16 @@ const commentController = {
     },
 
     deleteComment: async (req, res) => {
-        const { commentId } = req.params; // Fixed typo from commendId to commentId
+        const { commentId } = req.params; 
         const userId = req.user.id;
 
         try {
-            const comment = await Comment.findById(commentId); // Use commentId
+            const comment = await Comment.findById(commentId); 
             if (!comment) {
                 return res.status(404).json({ error: 'Comment not found' });
             }
 
-            const user = await User.findByPk(userId); // Fixed to use User model
+            const user = await User.findByPk(userId); 
             if (!user || (String(comment.userId) !== userId && user.role !== 'admin')) {
                 return res.status(403).json({ error: 'Unauthorized' });
             }
