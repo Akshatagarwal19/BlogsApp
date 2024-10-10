@@ -1,6 +1,7 @@
 import User from "../models/user.js";
 import fs from "fs";
 import path from "path";
+import { cloudinary } from "../config/cloudinaryConfig.js";
 import bcrypt from 'bcryptjs';
 import Posts from "../models/mongoPosts.js";
 
@@ -73,13 +74,16 @@ const userController = {
                 user.role = role;
             }
     
-            if (profilePhoto) {
+            if (req.file) {
+                // Delete existing profile photo from Cloudinary if it exists
                 if (user.profilePhoto) {
-                    if (fs.existsSync(user.profilePhoto)) { 
-                        fs.unlinkSync(user.profilePhoto);  
-                    }
+                    const publicId = user.profilePhoto.split('/').pop().split('.')[0]; // Extract the public ID
+                    await cloudinary.v2.uploader.destroy(publicId); // Delete from Cloudinary
                 }
-                user.profilePhoto = profilePhoto;  
+                
+                // Upload new profile photo
+                const result = await cloudinary.v2.uploader.upload(req.file.path);
+                user.profilePhoto = result.secure_url; // Store the Cloudinary URL
             }
     
             if (password) {

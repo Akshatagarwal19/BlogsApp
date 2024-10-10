@@ -1,22 +1,22 @@
+import Posts from '../models/mongoPosts.js';
 import fs from 'fs';
-import path from 'path';
-import Posts from '../models/mongoPosts.js';  
+import cloudinary from 'cloudinary';
 
 const postController = {
-    
+
     createPost: async (req, res) => {
         const { title, description } = req.body;
         const userId = req.user.id;
 
-        const mediaPath = req.file ? req.file.path : null;
-        const mediaType = req.file ? req.file.mimetype.split('/')[0] : null; 
+        const mediaUrl = req.file ? req.file.path : null;  // Cloudinary URL
+        const mediaType = req.file ? req.file.mimetype.split('/')[0] : null;  // e.g., 'image', 'video'
 
         try {
             const newPost = await Posts.create({
                 userId,
-                title: title || null, 
+                title: title || null,
                 description,
-                mediaPath,
+                mediaPath: mediaUrl,  // Store the Cloudinary URL
                 mediaType,
             });
 
@@ -52,11 +52,11 @@ const postController = {
     updatePost: async (req, res) => {
         const { id } = req.params;
         const { title, description } = req.body;
-        const mediaPath = req.file ? req.file.path : null;
+        const mediaUrl = req.file ? req.file.path : null; // Cloudinary URL
         const mediaType = req.file ? req.file.mimetype.split('/')[0] : null;
 
         try {
-            const post = await Posts.findById(id);  
+            const post = await Posts.findById(id);
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
@@ -64,12 +64,12 @@ const postController = {
             post.title = title || post.title;
             post.description = description || post.description;
 
-            if (mediaPath) {
-                
-                if (post.mediaPath) {
-                    fs.unlinkSync(post.mediaPath); 
-                }
-                post.mediaPath = mediaPath;
+            if (mediaUrl) {
+                // Delete the old media from Cloudinary if new media is uploaded
+                const oldPublicId = post.mediaPath.split('/').pop().split('.')[0];
+                await cloudinary.v2.uploader.destroy(oldPublicId);
+
+                post.mediaPath = mediaUrl;  // Update to new Cloudinary URL
                 post.mediaType = mediaType;
             }
 
@@ -86,7 +86,7 @@ const postController = {
         const userId = req.user.id;
 
         try {
-            const post = await Posts.findById(id);  
+            const post = await Posts.findById(id);
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
@@ -95,8 +95,10 @@ const postController = {
                 return res.status(403).json({ error: 'You do not have permission to delete this post' });
             }
 
+            // Delete the media from Cloudinary if it exists
             if (post.mediaPath) {
-                fs.unlinkSync(post.mediaPath);
+                const publicId = post.mediaPath.split('/').pop().split('.')[0];
+                await cloudinary.v2.uploader.destroy(publicId);
             }
 
             await post.deleteOne();
@@ -108,89 +110,25 @@ const postController = {
 
     streamPost: async (req, res) => {
         const { id } = req.params;
-
+    
         try {
-            const post = await Posts.findById(id);  
+            const post = await Posts.findById(id);  // Fetch post from DB
             if (!post) {
                 return res.status(404).json({ error: 'Post not found' });
             }
-
-            if (post.mediaType === 'image') {
-                const imagePath = post.mediaPath;
-                if (!fs.existsSync(imagePath)) {
-                    return res.status(404).json({ error: 'Image not found' });
-                }
-                res.sendFile(path.resolve(imagePath));
-            } 
-            else if (post.mediaType === 'video') {
-                const videoPath = post.mediaPath;
-                const videoStat = fs.statSync(videoPath);
-                const fileSize = videoStat.size;
-                const range = req.headers.range;
-
-                if (range) {
-                    const parts = range.replace(/bytes=/, "").split("-");
-                    const start = parseInt(parts[0], 10);
-                    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-
-                    const chunkSize = (end - start) + 1;
-                    const file = fs.createReadStream(videoPath, { start, end });
-                    const head = {
-                        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                        'Accepted-Ranges': `bytes`,
-                        'Content-Length': chunkSize,
-                        'Content-Type': 'video/mp4', 
-                    };
-
-                    res.writeHead(206, head);
-                    file.pipe(res);
-                } else {
-                    const head = {
-                        'Content-Length': fileSize,
-                        'Content-Type': 'video/mp4', 
-                    };
-                    res.writeHead(200, head);
-                    fs.createReadStream(videoPath).pipe(res);
-                }
+    
+            // Redirect to the Cloudinary URL based on the mediaType (video/audio)
+            if (post.mediaType === 'video' || post.mediaType === 'audio') {
+                const mediaUrl = post.mediaPath; // This is the Cloudinary URL
+                res.redirect(mediaUrl); // Redirect to the Cloudinary URL
+            } else {
+                res.status(400).json({ error: 'Unsupported media type' });
             }
-        
-            else if (post.mediaType === 'audio') {
-                const audioPath = post.mediaPath;
-                const audioStat = fs.statSync(audioPath);
-                const fileSize = audioStat.size;
-
-                const range = req.headers.range;
-                if (range) {
-                    const parts = range.replace(/bytes=/, "").split("-");
-                    const start = parseInt(parts[0], 10);
-                    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-                    const chunkSize = (end - start) + 1;
-                    const file = fs.createReadStream(audioPath, { start, end });
-
-                    const head = {
-                        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                        'Accept-Ranges': 'bytes',
-                        'Content-Length': chunkSize,
-                        'Content-Type': 'audio/mpeg',
-                    };
-
-                    res.writeHead(206, head);
-                    file.pipe(res);
-                } else {
-                    const head = {
-                        'Content-Length': fileSize,
-                        'Content-Type': 'audio/mpeg',
-                    };
-
-                    res.writeHead(200, head);
-                    fs.createReadStream(audioPath).pipe(res);
-                }
-            }
-        }
-        catch (error) {
+        } catch (error) {
             res.status(500).json({ error: 'Failed to stream media', details: error.message });
         }
-    },
+    }
+    
 };
 
 export default postController;
